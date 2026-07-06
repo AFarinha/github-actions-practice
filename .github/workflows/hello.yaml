@@ -24,4 +24,5 @@ jobs:
         run: ls -la
 
       - name: Print runner operating system
-        run: echo "Runner OS: ${{ runner.os }}"
+        run: |
+          echo "Runner OS: ${{ runner.os }}"
