@@ -1,0 +1,23 @@
+name: Self-Hosted Runner
+
+on:
+  workflow_dispatch:
+
+jobs:
+  self-hosted-check:
+    runs-on:
+      - self-hosted
+      - linux
+      - my-linux-runner
+    steps:
+      - name: Print machine hostname
+        run: hostname
+
+      - name: Print working directory
+        run: pwd
+
+      - name: Create runner verification file
+        run: |
+          echo "Created by GitHub Actions on $(date)" > self-hosted-runner-check.txt
+          ls -l self-hosted-runner-check.txt
+

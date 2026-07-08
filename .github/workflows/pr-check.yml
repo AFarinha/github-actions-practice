@@ -1,0 +1,23 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  pr-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print pull request branch
+        run: |
+          echo "PR check running for branch: ${{ github.head_ref }}"
+
+      - name: Print event name
+        run: |
+          echo "Triggered by: ${{ github.event_name }}"
