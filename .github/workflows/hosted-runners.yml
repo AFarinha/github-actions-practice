@@ -1,0 +1,42 @@
+name: Hosted Runners
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print runner details
+        run: |
+          echo "OS: $RUNNER_OS"
+          echo "Hostname: $(hostname)"
+          echo "User: $(whoami)"
+
+      - name: Print pre-installed tool versions
+        run: |
+          docker --version
+          python --version
+          node --version
+          git --version
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Print runner details
+        shell: pwsh
+        run: |
+          Write-Output "OS: $env:RUNNER_OS"
+          Write-Output "Hostname: $env:COMPUTERNAME"
+          Write-Output "User: $env:USERNAME"
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - name: Print runner details
+        run: |
+          echo "OS: $RUNNER_OS"
+          echo "Hostname: $(hostname)"
+          echo "User: $(whoami)"
+
