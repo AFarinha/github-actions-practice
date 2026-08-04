@@ -8,6 +8,9 @@ on:
       - opened
       - synchronize
 
+permissions:
+  contents: read
+
 jobs:
   build-test:
     name: Run PR build and tests
@@ -16,9 +19,23 @@ jobs:
       python_version: "3.12"
       run_tests: true
 
+  dependency-review:
+    name: Review dependency changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Check dependencies for vulnerabilities
+        uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: critical
+
   pr-comment:
     name: Print PR summary
-    needs: build-test
+    needs:
+      - build-test
+      - dependency-review
     runs-on: ubuntu-latest
     steps:
       - name: Print successful PR summary
