@@ -1,0 +1,47 @@
+name: Setup and Greet
+description: Prints a greeting and basic GitHub runner information
+
+inputs:
+  name:
+    description: Name included in the greeting
+    required: true
+  language:
+    description: Greeting language (en, pt, or es)
+    required: false
+    default: en
+
+outputs:
+  greeted:
+    description: Indicates whether the greeting steps completed
+    value: ${{ steps.result.outputs.greeted }}
+
+runs:
+  using: composite
+  steps:
+    - name: Print greeting
+      shell: bash
+      env:
+        PERSON_NAME: ${{ inputs.name }}
+        GREETING_LANGUAGE: ${{ inputs.language }}
+      run: |
+        case "${GREETING_LANGUAGE}" in
+          en) greeting="Hello" ;;
+          pt) greeting="Ola" ;;
+          es) greeting="Hola" ;;
+          *)
+            echo "Unsupported language: ${GREETING_LANGUAGE}"
+            exit 1
+            ;;
+        esac
+        echo "${greeting}, ${PERSON_NAME}!"
+
+    - name: Print runner information
+      shell: bash
+      run: |
+        echo "Current date: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+        echo "Runner OS: ${RUNNER_OS}"
+
+    - name: Set action output
+      id: result
+      shell: bash
+      run: echo "greeted=true" >> "${GITHUB_OUTPUT}"
