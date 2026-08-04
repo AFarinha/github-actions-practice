@@ -82,6 +82,8 @@ jobs:
           format: table
           exit-code: "1"
           severity: CRITICAL,HIGH
+          scanners: vuln
+          version: v0.73.0
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
