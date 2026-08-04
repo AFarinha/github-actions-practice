@@ -1,0 +1,70 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  file-size-check:
+    name: Reject files larger than 1 MB
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out pull request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Check changed file sizes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          large_file_found=0
+
+          while IFS= read -r -d '' file; do
+            if [ -f "${file}" ]; then
+              size=$(stat -c%s "${file}")
+              if [ "${size}" -gt 1048576 ]; then
+                echo "File exceeds 1 MB: ${file} (${size} bytes)"
+                large_file_found=1
+              fi
+            fi
+          done < <(git diff --name-only --diff-filter=ACMRT -z "${BASE_SHA}...${HEAD_SHA}")
+
+          if [ "${large_file_found}" -ne 0 ]; then
+            exit 1
+          fi
+
+          echo "All changed files are 1 MB or smaller."
+
+  branch-name-check:
+    name: Validate branch name
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch naming convention
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+        run: |
+          if [[ ! "${BRANCH_NAME}" =~ ^(feature|fix|docs)/.+$ ]]; then
+            echo "Invalid branch name: ${BRANCH_NAME}"
+            echo "Use feature/*, fix/*, or docs/*."
+            exit 1
+          fi
+
+          echo "Valid branch name: ${BRANCH_NAME}"
+
+  pr-body-check:
+    name: Check pull request description
+    runs-on: ubuntu-latest
+    steps:
+      - name: Warn when description is empty
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if [ -z "${PR_BODY//[[:space:]]/}" ]; then
+            echo "::warning::The pull request description is empty."
+          else
+            echo "The pull request includes a description."
+          fi

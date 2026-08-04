@@ -1,0 +1,20 @@
+name: Smart Path Triggers
+
+on:
+  push:
+    branches:
+      - main
+      - "release/**"
+    paths:
+      - "src/**"
+      - "app/**"
+
+jobs:
+  application-change:
+    name: Handle application change
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print trigger details
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: echo "Application files changed on ${BRANCH_NAME}."

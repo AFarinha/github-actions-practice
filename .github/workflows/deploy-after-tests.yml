@@ -1,0 +1,32 @@
+name: Deploy After Tests
+
+on:
+  workflow_run:
+    workflows:
+      - Run Tests
+    types:
+      - completed
+
+jobs:
+  deploy:
+    name: Deploy successful build
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print deployment decision
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          echo "Tests passed for ${SOURCE_SHA} on ${SOURCE_BRANCH}."
+          echo "Deployment can continue."
+
+  warn-on-failure:
+    name: Report unsuccessful tests
+    if: github.event.workflow_run.conclusion != 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print warning
+        env:
+          TEST_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: echo "::warning::Deployment skipped because tests concluded with ${TEST_CONCLUSION}."

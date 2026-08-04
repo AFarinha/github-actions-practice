@@ -1,0 +1,32 @@
+name: Scheduled Tasks
+
+on:
+  schedule:
+    - cron: "30 2 * * 1"
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    name: Scheduled health check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print triggering schedule
+        env:
+          TRIGGERING_SCHEDULE: ${{ github.event.schedule || 'workflow_dispatch' }}
+        run: echo "Triggered by ${TRIGGERING_SCHEDULE}"
+
+      - name: Check GitHub API health
+        run: |
+          response_code=$(curl --silent --show-error --location \
+            --output /dev/null \
+            --write-out "%{http_code}" \
+            --retry 3 \
+            https://api.github.com)
+
+          echo "Health-check response code: ${response_code}"
+
+          if [ "${response_code}" -lt 200 ] || [ "${response_code}" -ge 400 ]; then
+            echo "Health check failed."
+            exit 1
+          fi
