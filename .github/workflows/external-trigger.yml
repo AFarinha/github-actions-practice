@@ -1,0 +1,16 @@
+name: External Deploy Request
+
+on:
+  repository_dispatch:
+    types:
+      - deploy-request
+
+jobs:
+  handle-request:
+    name: Handle external deployment request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print client payload
+        env:
+          TARGET_ENVIRONMENT: ${{ github.event.client_payload.environment }}
+        run: echo "External deployment requested for ${TARGET_ENVIRONMENT}."
