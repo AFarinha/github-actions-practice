@@ -37,6 +37,6 @@ jobs:
     steps:
       - name: Print deployment target
         env:
-          IMAGE_URL: ${{ needs.docker.outputs.image_url }}
+          IMAGE_URL: afarinha/github-actions-practice:latest
         run: |
           echo "Deploying image: ${IMAGE_URL} to production"

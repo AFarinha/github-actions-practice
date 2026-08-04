@@ -16,10 +16,6 @@ on:
         required: true
       docker_token:
         required: true
-    outputs:
-      image_url:
-        description: Full path of the first published image tag
-        value: ${{ jobs.docker.outputs.image_url }}
 
 permissions:
   contents: read
@@ -28,8 +24,6 @@ jobs:
   docker:
     name: Build and publish Docker image
     runs-on: ubuntu-latest
-    outputs:
-      image_url: ${{ steps.image-tags.outputs.image_url }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
