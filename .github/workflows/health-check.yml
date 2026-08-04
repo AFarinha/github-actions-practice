@@ -1,0 +1,99 @@
+name: Scheduled Health Check
+
+on:
+  schedule:
+    - cron: "0 */12 * * *"
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    name: Check published application image
+    runs-on: ubuntu-latest
+    env:
+      APP_IMAGE: afarinha/github-actions-practice:latest
+      APP_CONTAINER: capstone-app
+      DB_CONTAINER: capstone-db
+      DOCKER_NETWORK: capstone-health
+    steps:
+      - name: Pull latest application image
+        run: docker pull "${APP_IMAGE}"
+
+      - name: Start PostgreSQL
+        run: |
+          docker network create "${DOCKER_NETWORK}"
+          docker run --detach \
+            --name "${DB_CONTAINER}" \
+            --network "${DOCKER_NETWORK}" \
+            --env POSTGRES_DB=tasks \
+            --env POSTGRES_USER=tasks \
+            --env POSTGRES_PASSWORD=taskspass \
+            postgres:16-alpine
+
+      - name: Wait for PostgreSQL
+        run: |
+          for attempt in $(seq 1 30); do
+            if docker exec "${DB_CONTAINER}" pg_isready -U tasks -d tasks; then
+              exit 0
+            fi
+            echo "Waiting for PostgreSQL (${attempt}/30)..."
+            sleep 2
+          done
+
+          echo "PostgreSQL did not become ready."
+          exit 1
+
+      - name: Start application container
+        run: |
+          docker run --detach \
+            --name "${APP_CONTAINER}" \
+            --network "${DOCKER_NETWORK}" \
+            --publish 8080:5000 \
+            --env DATABASE_HOST="${DB_CONTAINER}" \
+            --env DATABASE_PORT=5432 \
+            --env POSTGRES_DB=tasks \
+            --env POSTGRES_USER=tasks \
+            --env POSTGRES_PASSWORD=taskspass \
+            "${APP_IMAGE}"
+
+      - name: Check health endpoint
+        id: health
+        continue-on-error: true
+        run: |
+          sleep 5
+          if ! response_code=$(curl --silent --show-error \
+              --output /tmp/health-response.json \
+              --write-out "%{http_code}" \
+              http://localhost:8080/health); then
+            echo "Could not connect to the health endpoint."
+            exit 1
+          fi
+
+          cat /tmp/health-response.json
+          echo "Health-check response code: ${response_code}"
+
+          if [ "${response_code}" -ne 200 ]; then
+            exit 1
+          fi
+
+      - name: Write health-check summary
+        if: always()
+        env:
+          HEALTH_STATUS: ${{ steps.health.outcome == 'success' && 'PASSED' || 'FAILED' }}
+        run: |
+          {
+            echo "## Health Check Report"
+            echo "- Image: ${APP_IMAGE}"
+            echo "- Status: ${HEALTH_STATUS}"
+            echo "- Time: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Stop and remove containers
+        if: always()
+        run: |
+          docker rm --force "${APP_CONTAINER}" >/dev/null 2>&1 || true
+          docker rm --force "${DB_CONTAINER}" >/dev/null 2>&1 || true
+          docker network rm "${DOCKER_NETWORK}" >/dev/null 2>&1 || true
+
+      - name: Fail unsuccessful health check
+        if: always() && steps.health.outcome != 'success'
+        run: exit 1

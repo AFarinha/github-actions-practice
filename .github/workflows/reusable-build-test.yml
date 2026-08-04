@@ -1,0 +1,90 @@
+name: Reusable Build and Test
+
+on:
+  workflow_call:
+    inputs:
+      python_version:
+        description: Python version used by the test job
+        required: false
+        default: "3.12"
+        type: string
+      run_tests:
+        description: Whether the Python tests should run
+        required: false
+        default: true
+        type: boolean
+    outputs:
+      test_result:
+        description: Test result returned to the caller
+        value: ${{ jobs.build-test.outputs.test_result }}
+      short_sha:
+        description: Seven-character commit SHA used for image tags
+        value: ${{ jobs.build-test.outputs.short_sha }}
+
+jobs:
+  build-test:
+    name: Build and test Python application
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: tasks
+          POSTGRES_USER: tasks
+          POSTGRES_PASSWORD: taskspass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tasks -d tasks"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_HOST: localhost
+      DATABASE_PORT: "5432"
+      POSTGRES_DB: tasks
+      POSTGRES_USER: tasks
+      POSTGRES_PASSWORD: taskspass
+    outputs:
+      test_result: ${{ steps.result.outputs.test_result }}
+      short_sha: ${{ steps.result.outputs.short_sha }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+          cache: pip
+
+      - name: Install application and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
+
+      - name: Run Python tests
+        id: tests
+        if: inputs.run_tests
+        continue-on-error: true
+        run: python -m pytest -q
+
+      - name: Set workflow outputs
+        id: result
+        if: always()
+        env:
+          RUN_TESTS: ${{ inputs.run_tests }}
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+        run: |
+          if [ "${RUN_TESTS}" = "true" ] && [ "${TEST_OUTCOME}" != "success" ]; then
+            test_result="failed"
+          else
+            test_result="passed"
+          fi
+
+          echo "test_result=${test_result}" >> "${GITHUB_OUTPUT}"
+          echo "short_sha=${GITHUB_SHA::7}" >> "${GITHUB_OUTPUT}"
+
+      - name: Fail when tests fail
+        if: inputs.run_tests && steps.tests.outcome != 'success'
+        run: exit 1

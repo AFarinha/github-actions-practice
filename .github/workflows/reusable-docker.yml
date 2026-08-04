@@ -1,0 +1,84 @@
+name: Reusable Docker Build and Push
+
+on:
+  workflow_call:
+    inputs:
+      image_name:
+        description: Docker Hub image name without a tag
+        required: true
+        type: string
+      tag:
+        description: One or more image tags separated by new lines
+        required: true
+        type: string
+    secrets:
+      docker_username:
+        required: true
+      docker_token:
+        required: true
+    outputs:
+      image_url:
+        description: Full path of the first published image tag
+        value: ${{ jobs.docker.outputs.image_url }}
+
+jobs:
+  docker:
+    name: Build and publish Docker image
+    runs-on: ubuntu-latest
+    outputs:
+      image_url: ${{ steps.image-tags.outputs.image_url }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.docker_username }}
+          password: ${{ secrets.docker_token }}
+
+      - name: Prepare image tags
+        id: image-tags
+        env:
+          IMAGE_NAME: ${{ inputs.image_name }}
+          REQUESTED_TAGS: ${{ inputs.tag }}
+        run: |
+          tags_file="${RUNNER_TEMP}/image-tags.txt"
+          first_image=""
+          : > "${tags_file}"
+
+          while IFS= read -r tag; do
+            if [ -z "${tag}" ]; then
+              continue
+            fi
+
+            image="${IMAGE_NAME}:${tag}"
+            echo "${image}" >> "${tags_file}"
+
+            if [ -z "${first_image}" ]; then
+              first_image="${image}"
+            fi
+          done <<< "${REQUESTED_TAGS}"
+
+          if [ -z "${first_image}" ]; then
+            echo "No Docker tags were provided."
+            exit 1
+          fi
+
+          {
+            echo "tags<<EOF"
+            cat "${tags_file}"
+            echo "EOF"
+            echo "image_url=${first_image}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.image-tags.outputs.tags }}
