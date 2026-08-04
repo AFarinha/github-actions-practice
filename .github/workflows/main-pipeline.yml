@@ -1,0 +1,39 @@
+name: Main Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-test:
+    name: Run main build and tests
+    uses: ./.github/workflows/reusable-build-test.yml
+    with:
+      python_version: "3.12"
+      run_tests: true
+
+  docker:
+    name: Publish Docker image
+    needs: build-test
+    uses: ./.github/workflows/reusable-docker.yml
+    with:
+      image_name: afarinha/github-actions-practice
+      tag: |
+        latest
+        sha-${{ needs.build-test.outputs.short_sha }}
+    secrets:
+      docker_username: ${{ secrets.DOCKER_USERNAME }}
+      docker_token: ${{ secrets.DOCKER_TOKEN }}
+
+  deploy:
+    name: Deploy to production
+    needs: docker
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Print deployment target
+        env:
+          IMAGE_URL: ${{ needs.docker.outputs.image_url }}
+        run: |
+          echo "Deploying image: ${IMAGE_URL} to production"
